@@ -39,7 +39,9 @@ func TestBatchQuery(t *testing.T) {
 	}
 
 	// The OK property could be ignored and get directly to the checking of HasData. If style
-	if qr = ms.Get(`SELECT * FROM tamEquipment ORDER BY BrandName`); qr.HasData {
+	if qr = ms.Get(`SELECT * 
+					FROM tamEquipment 
+					ORDER BY BrandName`); qr.HasData {
 		log.Println("Data found (Shortcut): " + qr.Data[0].ValueString("BrandName") + ", ActionNumber: " + strconv.Itoa(int(ms.ActionNumber)))
 	}
 

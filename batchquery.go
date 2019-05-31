@@ -184,6 +184,11 @@ func (m *BatchQuery) OK() bool {
 	return m.Error == ""
 }
 
+// Settings - returns the internal datahelper settings
+func (m *BatchQuery) Settings() cfg.Configuration {
+	return m.internDH.Settings
+}
+
 // Get - shortcut to get row
 func (q *QueryResult) Get(rowIndex int) *dt.Row {
 	rc := len(q.Data)
