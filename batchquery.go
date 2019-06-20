@@ -19,16 +19,17 @@ type QueryResult struct {
 
 // BatchQuery - the BatchQuery struct
 type BatchQuery struct {
-	internDH     *dh.DataHelper
-	connected    bool
-	Error        string
-	ScopeName    string
-	ActionNumber int
+	internDH          *dh.DataHelper
+	connected         bool
+	Error             string
+	ScopeActionNumber int
+	ActionNumber      int
+	scopeName         string
 }
 
 // NewBatchQuery - create a new BatchQuery object
 func NewBatchQuery(config *cfg.Configuration) *BatchQuery {
-	ms := &BatchQuery{ScopeName: "main"}
+	ms := &BatchQuery{scopeName: "main"}
 	ms.internDH = dh.NewDataHelper(config)
 
 	return ms
@@ -37,10 +38,11 @@ func NewBatchQuery(config *cfg.Configuration) *BatchQuery {
 // Connect - connect the BatchQuery to the databse
 func (m *BatchQuery) Connect(connectionID string) bool {
 	m.Error = ""
-	m.ActionNumber = 0
+	m.ActionNumber = 1
+	m.ScopeActionNumber = 1
+
 	connected, err := m.internDH.Connect(connectionID)
 	if err != nil {
-		m.ActionNumber = 1
 		m.Error = err.Error()
 		return false
 	}
@@ -50,26 +52,27 @@ func (m *BatchQuery) Connect(connectionID string) bool {
 
 // Disconnect - disconnect from the dataabse
 func (m *BatchQuery) Disconnect() {
+	m.ActionNumber = 0
+	m.ScopeActionNumber = 0
 	m.internDH.Disconnect()
 }
 
 // Get - get data from the database
 func (m *BatchQuery) Get(preparedSQL string, args ...interface{}) QueryResult {
-	m.ActionNumber++
-
 	if m.Error != "" {
 		return QueryResult{}
 	}
 
 	if !m.connected {
-		m.ActionNumber++
 		m.Error = "Not connected"
 		return QueryResult{}
 	}
 
+	m.ActionNumber++
+	m.ScopeActionNumber++
+
 	dtr, err := m.internDH.GetData(preparedSQL, args...)
 	if err != nil {
-
 		m.Error = err.Error()
 		return QueryResult{}
 	}
@@ -83,17 +86,17 @@ func (m *BatchQuery) Get(preparedSQL string, args ...interface{}) QueryResult {
 
 // Set - set data in the database
 func (m *BatchQuery) Set(preparedSQL string, args ...interface{}) QueryResult {
-	m.ActionNumber++
-
 	if m.Error != "" {
 		return QueryResult{}
 	}
 
 	if !m.connected {
-		m.ActionNumber++
 		m.Error = "Not connected"
 		return QueryResult{}
 	}
+
+	m.ActionNumber++
+	m.ScopeActionNumber++
 
 	sqr, err := m.internDH.Exec(preparedSQL, args...)
 	if err != nil {
@@ -124,17 +127,17 @@ func (m *BatchQuery) Set(preparedSQL string, args ...interface{}) QueryResult {
 
 // Do - execute a stored procedure
 func (m *BatchQuery) Do(preparedSQL string, args ...interface{}) QueryResult {
-	m.ActionNumber++
-
 	if m.Error != "" {
 		return QueryResult{}
 	}
 
 	if !m.connected {
-		m.ActionNumber++
 		m.Error = "Not connected"
 		return QueryResult{}
 	}
+
+	m.ActionNumber++
+	m.ScopeActionNumber++
 
 	pl := strings.ToLower(preparedSQL)
 	pl = strings.TrimPrefix(pl, "")
@@ -160,12 +163,16 @@ func (m *BatchQuery) Begin() {
 	_, err := m.internDH.Begin()
 	if err != nil {
 		m.ActionNumber++
+		m.ScopeActionNumber++
 		m.Error = err.Error()
 	}
 }
 
 // Rollback - rollback a transaction
 func (m *BatchQuery) Rollback() {
+	m.ActionNumber++
+	m.ScopeActionNumber++
+
 	err := m.internDH.Rollback()
 	if err != nil {
 		m.ActionNumber++
@@ -190,6 +197,12 @@ func (m *BatchQuery) OK() bool {
 // Settings - returns the internal datahelper settings
 func (m *BatchQuery) Settings() cfg.Configuration {
 	return m.internDH.Settings
+}
+
+// ScopeName - name of a function where this query is currently running for debugging purposes. This must be set before any query is executed. The default scope name is 'main'
+func (m *BatchQuery) ScopeName(scopeName string) {
+	m.ScopeActionNumber = 0
+	m.scopeName = scopeName
 }
 
 // Get - shortcut to get row
