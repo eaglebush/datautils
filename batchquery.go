@@ -21,15 +21,16 @@ type QueryResult struct {
 type BatchQuery struct {
 	internDH          *dh.DataHelper
 	connected         bool
-	Error             string
-	ScopeActionNumber int
-	ActionNumber      int
+	errorText         string
+	scopeActionNumber int
+	actionNumber      int
 	scopeName         string
+	lastQuery         string
 }
 
 // NewBatchQuery - create a new BatchQuery object
 func NewBatchQuery(config *cfg.Configuration) *BatchQuery {
-	ms := &BatchQuery{scopeName: "main"}
+	ms := &BatchQuery{scopeName: "main", lastQuery: ""}
 	ms.internDH = dh.NewDataHelper(config)
 
 	return ms
@@ -37,13 +38,14 @@ func NewBatchQuery(config *cfg.Configuration) *BatchQuery {
 
 // Connect - connect the BatchQuery to the databse
 func (m *BatchQuery) Connect(connectionID string) bool {
-	m.Error = ""
-	m.ActionNumber = 1
-	m.ScopeActionNumber = 1
+	m.errorText = ""
+	m.lastQuery = ""
+	m.actionNumber = 1
+	m.scopeActionNumber = 1
 
 	connected, err := m.internDH.Connect(connectionID)
 	if err != nil {
-		m.Error = err.Error()
+		m.errorText = err.Error()
 		return false
 	}
 	m.connected = connected
@@ -52,28 +54,31 @@ func (m *BatchQuery) Connect(connectionID string) bool {
 
 // Disconnect - disconnect from the dataabse
 func (m *BatchQuery) Disconnect() {
-	m.ActionNumber = 0
-	m.ScopeActionNumber = 0
+	m.actionNumber = 0
+	m.scopeActionNumber = 0
+	m.errorText = ""
+	m.lastQuery = ""
 	m.internDH.Disconnect()
 }
 
 // Get - get data from the database
 func (m *BatchQuery) Get(preparedSQL string, args ...interface{}) QueryResult {
-	if m.Error != "" {
+	if m.errorText != "" {
 		return QueryResult{}
 	}
 
 	if !m.connected {
-		m.Error = "Not connected"
+		m.errorText = "Not connected"
 		return QueryResult{}
 	}
 
-	m.ActionNumber++
-	m.ScopeActionNumber++
+	m.actionNumber++
+	m.scopeActionNumber++
+	m.lastQuery = preparedSQL
 
 	dtr, err := m.internDH.GetData(preparedSQL, args...)
 	if err != nil {
-		m.Error = err.Error()
+		m.errorText = err.Error()
 		return QueryResult{}
 	}
 
@@ -86,21 +91,22 @@ func (m *BatchQuery) Get(preparedSQL string, args ...interface{}) QueryResult {
 
 // Set - set data in the database
 func (m *BatchQuery) Set(preparedSQL string, args ...interface{}) QueryResult {
-	if m.Error != "" {
+	if m.errorText != "" {
 		return QueryResult{}
 	}
 
 	if !m.connected {
-		m.Error = "Not connected"
+		m.errorText = "Not connected"
 		return QueryResult{}
 	}
 
-	m.ActionNumber++
-	m.ScopeActionNumber++
+	m.actionNumber++
+	m.scopeActionNumber++
+	m.lastQuery = preparedSQL
 
 	sqr, err := m.internDH.Exec(preparedSQL, args...)
 	if err != nil {
-		m.Error = err.Error()
+		m.errorText = err.Error()
 		return QueryResult{}
 	}
 
@@ -127,17 +133,14 @@ func (m *BatchQuery) Set(preparedSQL string, args ...interface{}) QueryResult {
 
 // Do - execute a stored procedure
 func (m *BatchQuery) Do(preparedSQL string, args ...interface{}) QueryResult {
-	if m.Error != "" {
+	if m.errorText != "" {
 		return QueryResult{}
 	}
 
 	if !m.connected {
-		m.Error = "Not connected"
+		m.errorText = "Not connected"
 		return QueryResult{}
 	}
-
-	m.ActionNumber++
-	m.ScopeActionNumber++
 
 	pl := strings.ToLower(preparedSQL)
 	pl = strings.TrimPrefix(pl, "")
@@ -145,10 +148,14 @@ func (m *BatchQuery) Do(preparedSQL string, args ...interface{}) QueryResult {
 		preparedSQL = "EXECUTE " + preparedSQL
 	}
 
+	m.actionNumber++
+	m.scopeActionNumber++
+	m.lastQuery = preparedSQL
+
 	// Stored proc may have data returned
 	dtr, err := m.internDH.GetData(preparedSQL, args...)
 	if err != nil {
-		m.Error = err.Error()
+		m.errorText = err.Error()
 		return QueryResult{}
 	}
 	return QueryResult{
@@ -160,38 +167,40 @@ func (m *BatchQuery) Do(preparedSQL string, args ...interface{}) QueryResult {
 
 // Begin - begin a transaction
 func (m *BatchQuery) Begin() {
+	m.actionNumber++
+	m.scopeActionNumber++
+
 	_, err := m.internDH.Begin()
 	if err != nil {
-		m.ActionNumber++
-		m.ScopeActionNumber++
-		m.Error = err.Error()
+		m.errorText = err.Error()
 	}
 }
 
 // Rollback - rollback a transaction
 func (m *BatchQuery) Rollback() {
-	m.ActionNumber++
-	m.ScopeActionNumber++
+	m.actionNumber++
+	m.scopeActionNumber++
 
 	err := m.internDH.Rollback()
 	if err != nil {
-		m.ActionNumber++
-		m.Error = err.Error()
+		m.errorText = err.Error()
 	}
 }
 
 // Commit - commit a transaction
 func (m *BatchQuery) Commit() {
+	m.actionNumber++
+	m.scopeActionNumber++
+
 	err := m.internDH.Commit()
 	if err != nil {
-		m.ActionNumber++
-		m.Error = err.Error()
+		m.errorText = err.Error()
 	}
 }
 
 // OK - checks if all queries are OK
 func (m *BatchQuery) OK() bool {
-	return m.Error == ""
+	return m.errorText == ""
 }
 
 // Settings - returns the internal datahelper settings
@@ -201,8 +210,33 @@ func (m *BatchQuery) Settings() cfg.Configuration {
 
 // ScopeName - name of a function where this query is currently running for debugging purposes. This must be set before any query is executed. The default scope name is 'main'
 func (m *BatchQuery) ScopeName(scopeName string) {
-	m.ScopeActionNumber = 0
+	m.scopeActionNumber = 0
 	m.scopeName = scopeName
+}
+
+// LastScopeName - returns the name of the last scope
+func (m *BatchQuery) LastScopeName() string {
+	return m.scopeName
+}
+
+// LastScopeActionNumber - returns the last scope action number
+func (m *BatchQuery) LastScopeActionNumber() int {
+	return m.scopeActionNumber
+}
+
+// LastActionNumber - returns the last action number
+func (m *BatchQuery) LastActionNumber() int {
+	return m.actionNumber
+}
+
+// LastErrorText - returns the last error text
+func (m *BatchQuery) LastErrorText() string {
+	return m.errorText
+}
+
+// LastQuery - returns the last query
+func (m *BatchQuery) LastQuery() string {
+	return m.lastQuery
 }
 
 // Get - shortcut to get row
