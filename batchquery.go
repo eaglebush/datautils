@@ -11,9 +11,10 @@ import (
 
 // QueryResult - the result of the query
 type QueryResult struct {
-	OK      bool
-	Data    []dt.Row
-	HasData bool
+	OK              bool
+	Data            []dt.Row
+	HasData         bool
+	HasAffectedRows bool
 }
 
 // BatchQuery - the BatchQuery struct
@@ -21,12 +22,13 @@ type BatchQuery struct {
 	internDH     *dh.DataHelper
 	connected    bool
 	Error        string
+	ScopeName    string
 	ActionNumber int
 }
 
 // NewBatchQuery - create a new BatchQuery object
 func NewBatchQuery(config *cfg.Configuration) *BatchQuery {
-	ms := &BatchQuery{}
+	ms := &BatchQuery{ScopeName: "main"}
 	ms.internDH = dh.NewDataHelper(config)
 
 	return ms
@@ -113,9 +115,10 @@ func (m *BatchQuery) Set(preparedSQL string, args ...interface{}) QueryResult {
 	dtr.AddRow(&r)
 
 	return QueryResult{
-		HasData: dtr.RowCount > 0,
-		Data:    dtr.Rows,
-		OK:      true,
+		HasAffectedRows: ra != 0,
+		HasData:         dtr.RowCount > 0,
+		Data:            dtr.Rows,
+		OK:              true,
 	}
 }
 
@@ -136,7 +139,7 @@ func (m *BatchQuery) Do(preparedSQL string, args ...interface{}) QueryResult {
 	pl := strings.ToLower(preparedSQL)
 	pl = strings.TrimPrefix(pl, "")
 	if pl != "exec" && pl != "execute" {
-		preparedSQL = "EXEC " + preparedSQL
+		preparedSQL = "EXECUTE " + preparedSQL
 	}
 
 	// Stored proc may have data returned
@@ -202,4 +205,15 @@ func (q *QueryResult) Get(rowIndex int) *dt.Row {
 	}
 
 	return &q.Data[rowIndex]
+}
+
+// First - shortcut to get the first row row
+func (q *QueryResult) First() *dt.Row {
+	rc := len(q.Data)
+
+	if rc == 0 {
+		return nil
+	}
+
+	return &q.Data[0]
 }
