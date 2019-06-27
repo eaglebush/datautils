@@ -203,6 +203,11 @@ func (m *BatchQuery) OK() bool {
 	return m.errorText == ""
 }
 
+// Waive - resets the error message back to zero to allow sending query again
+func (m *BatchQuery) Waive() {
+	m.errorText = ""
+}
+
 // Settings - returns the internal datahelper settings
 func (m *BatchQuery) Settings() cfg.Configuration {
 	return m.internDH.Settings
