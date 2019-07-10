@@ -208,6 +208,24 @@ func (m *BatchQuery) Waive() {
 	m.errorText = ""
 }
 
+// Mark - mark the start of a save point
+func (m *BatchQuery) Mark(PointID string) {
+	err := m.internDH.Mark(PointID)
+	if err != nil {
+		m.errorText = err.Error()
+	}
+	return
+}
+
+// Discard - discard the save point data
+func (m *BatchQuery) Discard(PointID string) {
+	err := m.internDH.Discard(PointID)
+	if err != nil {
+		m.errorText = err.Error()
+	}
+	return
+}
+
 // Settings - returns the internal datahelper settings
 func (m *BatchQuery) Settings() cfg.Configuration {
 	return m.internDH.Settings

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"testing"
 
+	_ "github.com/denisenkom/go-mssqldb"
 	cfg "github.com/eaglebush/config"
 )
 
@@ -16,6 +17,7 @@ func TestBatchQuery(t *testing.T) {
 	}
 
 	ms := NewBatchQuery(config)
+
 	if !ms.Connect("ZX_APPSDB") {
 		log.Fatal(`Connection to database failed`)
 	}
