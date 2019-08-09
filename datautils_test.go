@@ -84,3 +84,36 @@ func TestBatchQuery(t *testing.T) {
 		log.Println("Queries failed on last action number " + strconv.Itoa(ms.LastActionNumber()-1) + ". Details: " + ms.LastErrorText())
 	}
 }
+
+func TestGetNextBlockSurrogateKey(t *testing.T) {
+	config, err := cfg.LoadConfig("config.json")
+	if err != nil {
+		log.Fatal("Configuration file not found!")
+	}
+
+	bq := NewBatchQuery(config)
+	frequency := 10
+
+	tableName := "TestTable"
+
+	if !bq.Connect("DEST_MDCI") {
+		log.Fatal(`Connection to database failed`)
+	}
+	defer bq.Disconnect()
+
+	bq.ScopeName("TestGetNextBlockSurrogateKey")
+
+	qr := bq.Get(`SELECT NextKey FROM tciSurrogateKey WHERE TableName=?;`, tableName)
+	if qr.HasData {
+		//key := int(qr.Get(0).ValueInt64Ord(0)) // value of the key is what was defined before (therefore NextKey)
+
+		bq.Set(`UPDATE tciSurrogateKey SET NextKey = NextKey + ? WHERE TableName=?;`, int64(frequency)+1, tableName)
+		log.Println("OK")
+	}
+
+	bq.Set(`INSERT INTO tciSurrogateKey
+			SELECT ?,?`, tableName, int64(frequency)+1)
+
+	// 10
+	// outputs the next key as 11 to prepare for next
+}

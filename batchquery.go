@@ -119,8 +119,8 @@ func (m *BatchQuery) Set(preparedSQL string, args ...interface{}) QueryResult {
 	dtr.AddColumn("LastInsertId", reflect.TypeOf(i), 0, "int")
 
 	r := dtr.NewRow()
-	r.SetValueByOrd(ra, 0)
-	r.SetValueByOrd(li, 1)
+	r.Cells[0].Value = ra
+	r.Cells[1].Value = li
 	dtr.AddRow(&r)
 
 	return QueryResult{
