@@ -11,8 +11,8 @@
     },
     "Databases" : [
         {
-            "ID" : "ZX_APPSDB",
-            "ConnectionString" : "sqlserver://admin:fantastic4@192.168.1.39?database=ZX_APPSDB&connection+timeout=0&encrypt=disable",
+            "ID" : "SOURCE",
+            "ConnectionString" : "sqlserver://sample:sample@KASSGRAPHICS?database=NOTIFICATIONDB&connection+timeout=0&encrypt=disable",
             "DriverName" : "mssql",
             "StorageType": "SERVER",
             "GroupID": "",
@@ -23,11 +23,11 @@
             }
         },
         {
-            "ID" : "DEST_MDCI",
-            "ConnectionString" : "sqlserver://admin:fantastic4@192.168.1.195?database=MDCI_MAS500_APP&connection+timeout=0&encrypt=disable",
+            "ID" : "DESTINATION",
+            "ConnectionString" : "sqlserver://sample:sample@KASSGRAPHICS?database=SAMPLE&connection+timeout=0&encrypt=disable",
             "DriverName" : "mssql",
             "StorageType": "SERVER",
-            "GroupID": "PICKLISTDEST",
+            "GroupID": "",
             "SequenceGenerator" : {
                 "UpsertQuery" : "",
                 "ResultQuery" : "DECLARE @surrogatekey INT; EXEC dbo.spGetNextSurrogateKey '{SequenceName}', @surrogatekey OUTPUT; SELECT @surrogatekey;",

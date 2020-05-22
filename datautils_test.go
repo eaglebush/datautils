@@ -1,9 +1,12 @@
 package datautils
 
 import (
+	//"eaglebush/datahelper"
 	"log"
 	"strconv"
 	"testing"
+
+	"github.com/eaglebush/datahelper"
 
 	_ "github.com/denisenkom/go-mssqldb"
 	cfg "github.com/eaglebush/config"
@@ -116,4 +119,87 @@ func TestGetNextBlockSurrogateKey(t *testing.T) {
 
 	// 10
 	// outputs the next key as 11 to prepare for next
+}
+
+func TestImporter(t *testing.T) {
+	var (
+		err    error
+		config *cfg.Configuration
+	)
+
+	config, err = cfg.LoadConfig(`config.json`)
+	if err != nil {
+		log.Fatal("Configuration file not found!")
+	}
+
+	src := datahelper.NewDataHelper(config)
+	_, err = src.Connect(`SOURCE`)
+	defer src.Disconnect()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Destination picklist
+	dst := datahelper.NewDataHelper(config)
+	_, err = dst.Connect(`DESTINATION`)
+	defer dst.Disconnect()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Initialization
+	so := &Importer{ID: "Sent", Log: true}
+
+	so.Source = DataConfiguration{
+		Helper: src,
+	}
+
+	so.Source.PreparedQuery = `SELECT [EmailKey]
+								,[Subject]
+								,[Body]
+								,[Format]
+								,[Importance]
+								,[SenderName]
+								,[SenderAddress]
+								,[ApplicationID]
+								,[DateQueued]
+								,[DateSent]
+							  FROM [dbo].[tnfEmailSent];`
+
+	// so.Source.SetArgs(dbeg, dend, tranid, tranid)
+
+	so.Destination = DataConfiguration{
+		Helper: dst,
+	}
+
+	// Destination
+	so.Destination.PreparedQuery = `INSERT INTO [dbo].[tnfEmailSent]
+										([EmailKey]
+										,[Subject]
+										,[Body]
+										,[Format]
+										,[Importance]
+										,[SenderName]
+										,[SenderAddress]
+										,[ApplicationID]
+										,[DateQueued]
+										,[DateSent])
+									VALUES
+										(?,?,?,?,?,?,?,?,?,?);`
+
+	// Destination checking
+	so.DestinationCheck.PreparedQuery = `[dbo].[tnfEmailSent] WHERE EmailKey = ? AND SenderAddress = ?;`
+	so.SetCheckerIndex(0, 6)
+
+	// Run
+	cnt, ins, err := so.Run()
+	if err != nil {
+		log.Fatal(`SOURCE: [1] tsoSalesOrder: `, err)
+	}
+
+	log.Println(cnt, ins)
+
+	so = nil
 }

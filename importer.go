@@ -1,31 +1,52 @@
 package datautils
 
 import (
+	"database/sql"
+	//"eaglebush/datatable"
 	"log"
 	"strconv"
 
 	dh "github.com/eaglebush/datahelper"
+	"github.com/eaglebush/datatable"
 )
+
+// DataQuery - a data query set
+type DataQuery struct {
+	PreparedQuery string        // A prepared SQL query
+	Args          []interface{} // Value arguments
+}
 
 // DataConfiguration - a configuration for import/export
 type DataConfiguration struct {
-	Helper        *dh.DataHelper
-	PreparedQuery string
-	Args          []interface{}
+	DataQuery                // DataQuery object
+	Helper    *dh.DataHelper // DataHelper object
 }
 
 // Importer - imports data and store data to the destination
 type Importer struct {
-	ID          string
-	Source      DataConfiguration
-	Destination DataConfiguration
-	Log         bool
+	ID               string            // ID of the Importer
+	Source           DataConfiguration // Source data access configuration
+	Destination      DataConfiguration // Destination data access
+	DestinationCheck DataQuery         // A check query before importing data. If set, the importer will utilize this query
+	Log              bool              // Log actions
+	checkerIndex     []int             // Checker Indexes
 }
 
 // Run - run the importer
 func (imp *Importer) Run() (selected int64, inserted int64, err error) {
+
+	var (
+		rc        int64
+		ri        int64
+		exists    bool
+		aff       int64
+		rsrc      datatable.Row
+		affected  sql.Result
+		checkArgs []interface{}
+	)
+
 	// Get records from source
-	rsrc, err := imp.Source.Helper.GetDataReader(imp.Source.PreparedQuery, imp.Source.Args...)
+	rsrc, err = imp.Source.Helper.GetDataReader(imp.Source.PreparedQuery, imp.Source.Args...)
 	if err != nil {
 		if imp.Log {
 			log.Println(`SOURCE: `+imp.ID+` -> `, err)
@@ -33,40 +54,61 @@ func (imp *Importer) Run() (selected int64, inserted int64, err error) {
 		return 0, 0, err
 	}
 
-	// Prepare the destination
-	stmt, err := imp.Destination.Helper.Prepare(imp.Destination.PreparedQuery)
-	defer stmt.Close()
-	if err != nil {
-		if imp.Log {
-			log.Println(`DESTINATION: `+imp.ID+` -> `, err)
-		}
-
-		return 0, 0, err
-	}
-
-	var rc int64
-	var ri int64
 	rc = 0
 	ri = 0
 	broke := false
+
+	checkArgs = make([]interface{}, len(imp.checkerIndex))
+
 	for rsrc.Next() {
-		// Insert rows
-		affected, err := stmt.Exec(rsrc.ResultRows...)
-		if err != nil {
-			if imp.Log {
-				log.Printf(`DESTINATION: `+imp.ID+` -> Error inserting records: %v\r\n`, err.Error())
+
+		exists = false
+
+		// if set, we check records to validate
+		if imp.DestinationCheck.PreparedQuery != "" && len(imp.checkerIndex) > 0 {
+
+			// populate checker arguments
+			for i, v := range imp.checkerIndex {
+				checkArgs[i] = rsrc.ResultRows[v]
 			}
 
-			broke = true
-			break
+			exists, err = imp.Destination.Helper.Exists(imp.DestinationCheck.PreparedQuery, checkArgs...)
+			if err != nil {
+				if imp.Log {
+					log.Printf(`DESTINATION CHECK: `+imp.ID+` -> Error checking record: %v\r\n`, err.Error())
+				}
+
+				broke = true
+				break
+			}
+
+			if exists {
+				if imp.Log {
+					log.Printf(`DESTINATION CHECK: ` + imp.ID + ` -> Record exists.\r\n`)
+				}
+			}
+
 		}
 
-		aff, _ := affected.RowsAffected()
-		ri += aff
-		rc++
+		// Insert rows
+		if !exists {
+			affected, err = imp.Destination.Helper.Exec(imp.Destination.PreparedQuery, rsrc.ResultRows...)
+			if err != nil {
+				if imp.Log {
+					log.Printf(`DESTINATION: `+imp.ID+` -> Error inserting records: %v\r\n`, err.Error())
+				}
+
+				broke = true
+				break
+			}
+
+			aff, _ = affected.RowsAffected()
+			ri += aff
+			rc++
+		}
+
 	}
 	rsrc.Close()
-	stmt.Close()
 
 	if broke {
 		return rc, ri, err
@@ -85,4 +127,9 @@ func (dc *DataConfiguration) SetArgs(args ...interface{}) {
 	for i, v := range args {
 		dc.Args[i] = v
 	}
+}
+
+// SetCheckerIndex - set the checker result index for the DestinationChecker
+func (imp *Importer) SetCheckerIndex(argindex ...int) {
+	imp.checkerIndex = argindex
 }
