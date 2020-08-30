@@ -58,7 +58,7 @@ func (m *BatchQuery) Disconnect() {
 	m.scopeActionNumber = 0
 	m.errorText = ""
 	m.lastQuery = ""
-	m.internDH.Disconnect()
+	m.internDH.Disconnect(false)
 }
 
 // Get - get data from the database
@@ -170,7 +170,7 @@ func (m *BatchQuery) Begin() {
 	m.actionNumber++
 	m.scopeActionNumber++
 
-	_, err := m.internDH.Begin()
+	_, err := m.internDH.Begin(false)
 	if err != nil {
 		m.errorText = err.Error()
 	}
@@ -181,7 +181,7 @@ func (m *BatchQuery) Rollback() {
 	m.actionNumber++
 	m.scopeActionNumber++
 
-	err := m.internDH.Rollback()
+	err := m.internDH.Rollback(false)
 	if err != nil {
 		m.errorText = err.Error()
 	}
@@ -192,7 +192,7 @@ func (m *BatchQuery) Commit() {
 	m.actionNumber++
 	m.scopeActionNumber++
 
-	err := m.internDH.Commit()
+	err := m.internDH.Commit(false)
 	if err != nil {
 		m.errorText = err.Error()
 	}

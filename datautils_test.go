@@ -44,8 +44,8 @@ func TestBatchQuery(t *testing.T) {
 	}
 
 	// The OK property could be ignored and get directly to the checking of HasData. If style
-	if qr = ms.Get(`SELECT * 
-					FROM tamEquipment 
+	if qr = ms.Get(`SELECT *
+					FROM tamEquipment
 					ORDER BY BrandName`); qr.HasData {
 		log.Println("Data found (Shortcut): " + qr.Data[0].ValueString("BrandName") + ", ActionNumber: " + strconv.Itoa(int(ms.LastActionNumber())))
 	}
@@ -58,7 +58,7 @@ func TestBatchQuery(t *testing.T) {
 
 	// Sure checking of getting data (for SUM, COUNT etc)
 	qr = ms.Get(`SELECT COUNT(*) FROM tcoManufacturer`)
-	log.Println("Data found (Sure Shortcut): " + string(int(qr.Get(0).ValueInt64Ord(0))) + ", ActionNumber: " + strconv.Itoa(int(ms.LastActionNumber())))
+	//log.Println("Data found (Sure Shortcut): " + string(int(qr.Get(0).ValueInt64Ord(0))) + ", ActionNumber: " + strconv.Itoa(int(ms.LastActionNumber())))
 
 	qr = ms.Get(`SELECT * FROM tamRepairDetail ORDER BY Symptoms`)
 	if qr.OK {
@@ -134,7 +134,7 @@ func TestImporter(t *testing.T) {
 
 	src := datahelper.NewDataHelper(config)
 	_, err = src.Connect(`SOURCE`)
-	defer src.Disconnect()
+	defer src.Disconnect(false)
 
 	if err != nil {
 		log.Fatal(err)
@@ -143,7 +143,7 @@ func TestImporter(t *testing.T) {
 	// Destination picklist
 	dst := datahelper.NewDataHelper(config)
 	_, err = dst.Connect(`DESTINATION`)
-	defer dst.Disconnect()
+	defer dst.Disconnect(false)
 
 	if err != nil {
 		log.Fatal(err)
